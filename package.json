@@ -1,0 +1,13 @@
+{
+  "name": "usamaamjid-benchmarks",
+  "private": true,
+  "type": "module",
+  "description": "Reproducible benchmarks backing measurement claims in blog posts. Kept isolated from the site's package.json.",
+  "scripts": {
+    "mongo:in": "node mongodb-in-performance.mjs"
+  },
+  "dependencies": {
+    "mongodb": "^6.21.0",
+    "mongodb-memory-server": "^10.2.3"
+  }
+}
