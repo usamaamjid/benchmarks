@@ -30,17 +30,18 @@ takes about a minute.
 ```
 === $in on _id (primary index) ===
   IDs        ms    keysExam  docsExam  returned  plan
-       10      1.1        11        10        10  FETCH ← IXSCAN
-     1000      6.9      1001      1000      1000  FETCH ← IXSCAN
-    10000     43.0     10001     10000     10000  FETCH ← IXSCAN
-   100000    543.5    100001    100000    100000  FETCH ← IXSCAN
+       10      1.6        11        10        10  FETCH ← IXSCAN
+     1000     15.8      1001      1000      1000  FETCH ← IXSCAN
+    10000     87.4     10001     10000     10000  FETCH ← IXSCAN
+   100000    890.5    100001    100000    100000  FETCH ← IXSCAN
 ```
 
 - `$in` never leaves the index, even at 100,000 values. It expands to one
   exact-match index bound per value — N point lookups, not a scan.
 - `keysExamined` is exactly `n + 1` at every size. No wasted reads.
-- Cost tracks **documents returned**, not array length: a 10-value `$in` that
-  returns 10,000 docs is slower than a 10,000-value `$in` returning 10,000 docs.
+- Cost tracks **documents returned**, not array length. A 10-value `$in` and a
+  10,000-value `$in` both returning 10,000 docs finish within 5% of each other —
+  ~8.5 µs/doc either way.
 - Chunking a big `$in` into batches is **slower** — same work, more round trips.
 - The 16MB BSON ceiling needs ~800,000 ObjectIds. It is not your problem.
 
@@ -48,12 +49,23 @@ takes about a minute.
 
 Timings come from a local `mongod` with a warm cache and no network, so they are
 **relative, not production figures**. Each is the best of three attempts, and even
-then the same query varies 10–30% between runs. You will get different
-milliseconds.
+then the same query varies 10–30% between runs on one machine — and up to **2x
+between machines**. The table above is one run on one laptop. You will get
+different milliseconds.
 
-What doesn't vary between runs — and what the arguments actually rest on — is the
-`explain()` output: plan choice, index bounds, and `keysExamined`. Those are query
-planner decisions and they don't care how fast your disk is.
+These have **not** been run against Atlas or any hosted cluster, and the numbers
+here should not be read as if they were. On Atlas every query also pays a network
+round trip, large result sets are batched over the wire, shared tiers (M0/M2/M5)
+throttle CPU, and a working set larger than RAM turns reads into page faults. Each
+of those makes *documents returned* cost more, not less.
+
+What doesn't vary between runs, machines, or hosting — and what the arguments
+actually rest on — is the `explain()` output: plan choice, index bounds, and
+`keysExamined`. Those are query planner decisions and they don't care how fast
+your disk is.
+
+If your `explain()` output differs from what's documented here, that's a real
+finding — please open an issue.
 
 The mongod version is **pinned** in each script. `mongodb-memory-server`'s default
 drifts between releases, and a benchmark that silently changes engines isn't
